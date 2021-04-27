@@ -202,7 +202,7 @@ def main():
 
     N=0
     for imgdir in result_dirs:
-        if '.png' or '.jpg' in imgdir:
+        if '.png' in imgdir:
             #corrected image
             corrected = io.imread(os.path.join(result_path,imgdir))
 
