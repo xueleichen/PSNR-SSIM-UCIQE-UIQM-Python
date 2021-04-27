@@ -29,6 +29,7 @@ def rmetrics(a,b):
 def nmetrics(a):
     rgb = a
     lab = color.rgb2lab(a)
+    gray = color.rgb2gray(a)
     # UCIQE
     c1 = 0.4680
     c2 = 0.2745
@@ -41,7 +42,7 @@ def nmetrics(a):
     sc = (np.mean((chroma - uc)**2))**0.5
 
     #2nd term
-    top = np.int(0.01*l.shape[0]*l.shape[1])
+    top = np.int(np.round(0.01*l.shape[0]*l.shape[1]))
     sl = np.sort(l,axis=None)
     isl = sl[::-1]
     conl = np.mean(isl[::top])-np.mean(sl[::top])
@@ -88,6 +89,10 @@ def nmetrics(a):
     Gsobel = rgb[:,:,1] * filters.sobel(rgb[:,:,1])
     Bsobel = rgb[:,:,2] * filters.sobel(rgb[:,:,2])
 
+    Rsobel=np.round(Rsobel).astype(np.uint8)
+    Gsobel=np.round(Gsobel).astype(np.uint8)
+    Bsobel=np.round(Bsobel).astype(np.uint8)
+
     Reme = eme(Rsobel)
     Geme = eme(Gsobel)
     Beme = eme(Bsobel)
@@ -95,14 +100,9 @@ def nmetrics(a):
     uism = 0.299 * Reme + 0.587 * Geme + 0.114 * Beme
 
     #3rd term UIConM
-    logameeR = logamee(rgb[:,:,0])
-    logameeG = logamee(rgb[:,:,1])
-    logameeB = logamee(rgb[:,:,2])
-
-    uiconm = (logameeR + logameeG + logameeB)/3
+    uiconm = logamee(gray)
 
     uiqm = p1 * uicm + p2 * uism + p3 * uiconm
-
     return uiqm,uciqe
 
 def eme(ch,blocksize=8):
@@ -133,9 +133,15 @@ def eme(ch,blocksize=8):
             blockmin = np.float(np.min(block))
             blockmax = np.float(np.max(block))
 
-            if blockmin == 0.0: eme += 0
-            elif blockmax == 0.0: eme += 0
-            else: eme += w * math.log(blockmax / blockmin)
+            # # old version
+            # if blockmin == 0.0: eme += 0
+            # elif blockmax == 0.0: eme += 0
+            # else: eme += w * math.log(blockmax / blockmin)
+
+            # new version
+            if blockmin == 0: blockmin+=1
+            if blockmax == 0: blockmax+=1
+            eme += w * math.log(blockmax / blockmin)
     return eme
 
 def plipsum(i,j,gamma=1026):
@@ -177,9 +183,11 @@ def logamee(ch,blocksize=8):
             top = plipsub(blockmax,blockmin)
             bottom = plipsum(blockmax,blockmin)
 
-            if bottom == 0.0: s += 0
-            elif top == 0.0: s += 0
-            else: s += (top/bottom) * np.log(top/bottom)
+            m = top/bottom
+            if m ==0.:
+                s+=0
+            else:
+                s += (m) * np.log(m)
 
     return plipmult(w,s)
 
@@ -192,31 +200,34 @@ def main():
 
     sumpsnr, sumssim, sumuiqm, sumuciqe = 0.,0.,0.,0.
 
+    N=0
     for imgdir in result_dirs:
-        #corrected image
-        corrected = io.imread(os.path.join(result_path,imgdir))
+        if '.png' or '.jpg' in imgdir:
+            #corrected image
+            corrected = io.imread(os.path.join(result_path,imgdir))
 
-        #reference image
-        imgname = imgdir.split('corrected')[0]
-        refdir = imgname+'.png'
-        reference = io.imread(os.path.join(reference_path,refdir))
+            #reference image
+            imgname = imgdir.split('corrected')[0]
+            refdir = imgname+'.png'
+            reference = io.imread(os.path.join(reference_path,refdir))
 
-        psnr,ssim = rmetrics(corrected,reference)
+            psnr,ssim = rmetrics(corrected,reference)
 
-        uiqm,uciqe = nmetrics(corrected)
+            uiqm,uciqe = nmetrics(corrected)
 
-        sumpsnr += psnr
-        sumssim += ssim
-        sumuiqm += uiqm
-        sumuciqe += uciqe
+            sumpsnr += psnr
+            sumssim += ssim
+            sumuiqm += uiqm
+            sumuciqe += uciqe
+            N +=1
 
-        with open(os.path.join(result_path,'metrics.txt'), 'a') as f:
-            f.write('{}: psnr={} ssim={} uiqm={} uciqe={}\n'.format(imgname,psnr,ssim,uiqm,uciqe))
+            with open(os.path.join(result_path,'metrics.txt'), 'a') as f:
+                f.write('{}: psnr={} ssim={} uiqm={} uciqe={}\n'.format(imgname,psnr,ssim,uiqm,uciqe))
 
-    mpsnr = sumpsnr/len(result_dirs)
-    mssim = sumssim/len(result_dirs)
-    muiqm = sumuiqm/len(result_dirs)
-    muciqe = sumuciqe/len(result_dirs)
+    mpsnr = sumpsnr/N
+    mssim = sumssim/N
+    muiqm = sumuiqm/N
+    muciqe = sumuciqe/N
 
     with open(os.path.join(result_path,'metrics.txt'), 'a') as f:
         f.write('Average: psnr={} ssim={} uiqm={} uciqe={}\n'.format(mpsnr, mssim, muiqm, muciqe))
