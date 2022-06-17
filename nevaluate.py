@@ -34,7 +34,7 @@ def nmetrics(a):
     top = np.int(np.round(0.01*l.shape[0]*l.shape[1]))
     sl = np.sort(l,axis=None)
     isl = sl[::-1]
-    conl = np.mean(isl[::top])-np.mean(sl[::top])
+    conl = np.mean(isl[:top])-np.mean(sl[:top])
 
     #3rd term
     satur = []
