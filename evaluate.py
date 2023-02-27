@@ -1,5 +1,5 @@
 '''
-Metrics for unferwater image quality evaluation.
+Metrics for underwater image quality evaluation.
 
 Author: Xuelei Chen 
 Email: chenxuelei@hotmail.com
